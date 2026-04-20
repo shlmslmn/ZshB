@@ -1,0 +1,460 @@
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Badge } from "./ui/badge";
+import {
+  AlertCircle,
+  Upload,
+  Mic,
+  X,
+  CheckCircle,
+  Send,
+} from "lucide-react";
+
+interface ComplaintAttachment {
+  id: string;
+  name: string;
+  type: "image" | "video" | "file" | "voice";
+  size: number;
+}
+
+interface GuestComplaint {
+  guestName: string;
+  email: string;
+  roomNumber: string;
+  complaintType: string;
+  description: string;
+  priority: string;
+  attachments: ComplaintAttachment[];
+  voiceNote?: string;
+}
+
+interface GuestComplaintFormProps {
+  onComplaintSubmitted?: (complaint: GuestComplaint) => void;
+  triggerButtonText?: string;
+}
+
+const GuestComplaintForm: React.FC<GuestComplaintFormProps> = ({
+  onComplaintSubmitted,
+  triggerButtonText = "Report an Issue",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [complaint, setComplaint] = useState<GuestComplaint>({
+    guestName: "",
+    email: "",
+    roomNumber: "",
+    complaintType: "",
+    description: "",
+    priority: "medium",
+    attachments: [],
+  });
+
+  const complaintTypes = [
+    "Maintenance Issue",
+    "Cleanliness",
+    "Noise/Disturbance",
+    "Temperature Control",
+    "Service Quality",
+    "Missing Items",
+    "Facility Damage",
+    "Safety Concern",
+    "Other",
+  ];
+
+  const handleAddAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach((file) => {
+        const type = file.type.startsWith("image")
+          ? "image"
+          : file.type.startsWith("video")
+            ? "video"
+            : "file";
+
+        const newAttachment: ComplaintAttachment = {
+          id: `attach-${Date.now()}-${Math.random()}`,
+          name: file.name,
+          type,
+          size: file.size,
+        };
+
+        setComplaint((prev) => ({
+          ...prev,
+          attachments: [...prev.attachments, newAttachment],
+        }));
+      });
+    }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setComplaint((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((a) => a.id !== id),
+    }));
+  };
+
+  const handleStartRecording = () => {
+    setIsRecording(true);
+    // In a real app, this would start the recording
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+    // In a real app, this would stop and save the recording
+    const voiceAttachment: ComplaintAttachment = {
+      id: `voice-${Date.now()}`,
+      name: "Voice Note",
+      type: "voice",
+      size: 0,
+    };
+    setComplaint((prev) => ({
+      ...prev,
+      attachments: [...prev.attachments, voiceAttachment],
+      voiceNote: "recorded",
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (
+      !complaint.guestName.trim() ||
+      !complaint.email.trim() ||
+      !complaint.roomNumber.trim() ||
+      !complaint.complaintType ||
+      !complaint.description.trim()
+    ) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    console.log("Complaint submitted:", complaint);
+
+    // Show success screen
+    setIsSubmitted(true);
+
+    // Call callback if provided
+    if (onComplaintSubmitted) {
+      onComplaintSubmitted(complaint);
+    }
+
+    // Reset after 3 seconds
+    setTimeout(() => {
+      setIsSubmitted(false);
+      setIsOpen(false);
+      setComplaint({
+        guestName: "",
+        email: "",
+        roomNumber: "",
+        complaintType: "",
+        description: "",
+        priority: "medium",
+        attachments: [],
+      });
+    }, 3000);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="border-orange-200 text-orange-600 hover:bg-orange-50"
+        >
+          <AlertCircle className="h-4 w-4 mr-2" />
+          {triggerButtonText}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-600" />
+            Report an Issue
+          </DialogTitle>
+        </DialogHeader>
+
+        {!isSubmitted ? (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Guest Information */}
+            <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-sheraton-navy">Your Information</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="Your name"
+                    value={complaint.guestName}
+                    onChange={(e) =>
+                      setComplaint((prev) => ({
+                        ...prev,
+                        guestName: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={complaint.email}
+                    onChange={(e) =>
+                      setComplaint((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="room">Room Number *</Label>
+                  <Input
+                    id="room"
+                    placeholder="e.g., 301"
+                    value={complaint.roomNumber}
+                    onChange={(e) =>
+                      setComplaint((prev) => ({
+                        ...prev,
+                        roomNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority Level</Label>
+                  <Select
+                    value={complaint.priority}
+                    onValueChange={(value) =>
+                      setComplaint((prev) => ({
+                        ...prev,
+                        priority: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Complaint Details */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-sheraton-navy">Complaint Details</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="type">Issue Type *</Label>
+                <Select
+                  value={complaint.complaintType}
+                  onValueChange={(value) =>
+                    setComplaint((prev) => ({
+                      ...prev,
+                      complaintType: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select issue type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {complaintTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Detailed Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Please describe the issue in detail..."
+                  rows={4}
+                  value={complaint.description}
+                  onChange={(e) =>
+                    setComplaint((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-emerald-50 p-4 rounded-lg space-y-4">
+              <h3 className="font-semibold text-sheraton-navy">
+                Additional Evidence (Optional)
+              </h3>
+
+              {/* File Upload */}
+              <div className="space-y-2">
+                <Label>Upload Photos/Videos</Label>
+                <div className="border-2 border-dashed border-emerald-300 rounded-lg p-4">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleAddAttachment}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center cursor-pointer"
+                  >
+                    <Upload className="h-8 w-8 text-emerald-600 mb-2" />
+                    <p className="text-sm font-medium text-emerald-900">
+                      Click to upload photos or videos
+                    </p>
+                    <p className="text-xs text-emerald-700">
+                      PNG, JPG, MP4, MOV up to 50MB
+                    </p>
+                  </label>
+                </div>
+              </div>
+
+              {/* Voice Note */}
+              <div className="space-y-2">
+                <Label>Voice Note (Optional)</Label>
+                {!isRecording ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStartRecording}
+                    className="w-full"
+                  >
+                    <Mic className="h-4 w-4 mr-2" />
+                    Record Voice Note
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={handleStopRecording}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <Mic className="h-4 w-4 mr-2" />
+                    Stop Recording
+                  </Button>
+                )}
+              </div>
+
+              {/* Attachment List */}
+              {complaint.attachments.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Attached Files</Label>
+                  <div className="space-y-2">
+                    {complaint.attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between p-2 bg-white border rounded"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <Badge
+                            variant="outline"
+                            className="capitalize text-xs"
+                          >
+                            {attachment.type}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {attachment.name}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveAttachment(attachment.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="sheraton-gradient text-white"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Submit Complaint
+              </Button>
+            </div>
+          </form>
+        ) : (
+          // Success Screen
+          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+            <div className="relative">
+              <CheckCircle className="h-16 w-16 text-green-500" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold text-sheraton-navy">
+                Thank You!
+              </h3>
+              <p className="text-muted-foreground">
+                Your complaint has been submitted successfully.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                A manager has been notified and will address your issue shortly.
+              </p>
+            </div>
+            <Badge className="bg-green-100 text-green-800 mt-4">
+              Ticket ID: #{Date.now().toString().slice(-6)}
+            </Badge>
+            <p className="text-xs text-muted-foreground mt-4">
+              This dialog will close automatically...
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default GuestComplaintForm;
