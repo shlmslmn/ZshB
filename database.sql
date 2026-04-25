@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email VARCHAR(255) NOT NULL UNIQUE,
   role VARCHAR(50) NOT NULL CHECK (role IN ('guest', 'manager', 'service_provider')),
   first_name VARCHAR(100) NOT NULL,
@@ -62,7 +62,7 @@ ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
 -- Users can read their own profile
 CREATE POLICY "Users can read own profile" ON public.user_profiles
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR auth.uid()::text = 'anon');
 
 -- Users can update their own profile
 CREATE POLICY "Users can update own profile" ON public.user_profiles
@@ -72,7 +72,7 @@ CREATE POLICY "Users can update own profile" ON public.user_profiles
 -- Users can insert their own profile (during signup)
 CREATE POLICY "Users can insert own profile" ON public.user_profiles
   FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
 -- Managers can read all profiles (optional - for management dashboard)
 CREATE POLICY "Managers can read all profiles" ON public.user_profiles
@@ -85,17 +85,17 @@ CREATE POLICY "Managers can read all profiles" ON public.user_profiles
   );
 
 -- Complaints RLS Policies
--- Users can read their own complaints
+-- Authenticated users can read their own complaints
 CREATE POLICY "Users can read own complaints" ON public.complaints
   FOR SELECT
-  USING (user_id = auth.uid() OR email = auth.jwt() ->> 'email');
+  USING (user_id = auth.uid());
 
--- Users can insert complaints (with or without auth)
+-- Anyone (authenticated or not) can submit complaints
 CREATE POLICY "Anyone can submit complaint" ON public.complaints
   FOR INSERT
   WITH CHECK (true);
 
--- Users can update their own complaints
+-- Authenticated users can update their own complaints
 CREATE POLICY "Users can update own complaints" ON public.complaints
   FOR UPDATE
   USING (user_id = auth.uid());
@@ -126,10 +126,9 @@ CREATE POLICY "Managers can update all complaints" ON public.complaints
 
 -- Insert sample guest user profile (for testing without auth)
 INSERT INTO public.user_profiles (
-  id, user_id, email, role, first_name, last_name, phone, room_number, created_at, updated_at
+  id, email, role, first_name, last_name, phone, room_number, created_at, updated_at
 ) VALUES (
   'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
-  'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
   'guest.demo@sheraton.com',
   'guest',
   'John',
@@ -142,10 +141,9 @@ INSERT INTO public.user_profiles (
 
 -- Insert sample manager user profile
 INSERT INTO public.user_profiles (
-  id, user_id, email, role, first_name, last_name, phone, created_at, updated_at
+  id, email, role, first_name, last_name, phone, created_at, updated_at
 ) VALUES (
   'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2',
-  'd2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2',
   'manager.demo@sheraton.com',
   'manager',
   'Jane',
@@ -157,16 +155,15 @@ INSERT INTO public.user_profiles (
 
 -- Insert sample service provider (internal)
 INSERT INTO public.user_profiles (
-  id, user_id, email, role, first_name, last_name, phone, service_type, service_category, created_at, updated_at
+  id, email, role, first_name, last_name, phone, service_type, service_category, created_at, updated_at
 ) VALUES (
   'e3e3e3e3-e3e3-e3e3-e3e3-e3e3e3e3e3e3',
-  'f3f3f3f3-f3f3-f3f3-f3f3-f3f3f3f3f3f3',
   'maintenance.staff@sheraton.com',
   'service_provider',
   'Robert',
   'Johnson',
   '+1-555-0102',
-  NULL,
+  'Maintenance',
   'internal',
   NOW(),
   NOW()
@@ -174,10 +171,9 @@ INSERT INTO public.user_profiles (
 
 -- Insert sample external service provider
 INSERT INTO public.user_profiles (
-  id, user_id, email, role, first_name, last_name, phone, service_type, service_category, created_at, updated_at
+  id, email, role, first_name, last_name, phone, service_type, service_category, created_at, updated_at
 ) VALUES (
   'g4g4g4g4-g4g4-g4g4-g4g4-g4g4g4g4g4g4',
-  'h4h4h4h4-h4h4-h4h4-h4h4-h4h4h4h4h4h4',
   'external.vendor@plumbing.com',
   'service_provider',
   'Mike',
@@ -191,10 +187,9 @@ INSERT INTO public.user_profiles (
 
 -- Insert sample complaints
 INSERT INTO public.complaints (
-  id, user_id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
+  id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
 ) VALUES (
   'comp-001-uuid-0001',
-  'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
   'John Doe',
   'guest.demo@sheraton.com',
   '301',
@@ -208,10 +203,9 @@ INSERT INTO public.complaints (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.complaints (
-  id, user_id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
+  id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
 ) VALUES (
   'comp-002-uuid-0002',
-  NULL,
   'Sarah Johnson',
   'sarah.johnson@email.com',
   '205',
@@ -225,10 +219,9 @@ INSERT INTO public.complaints (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.complaints (
-  id, user_id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
+  id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
 ) VALUES (
   'comp-003-uuid-0003',
-  NULL,
   'Michael Chen',
   'michael.chen@email.com',
   '420',
@@ -242,10 +235,9 @@ INSERT INTO public.complaints (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.complaints (
-  id, user_id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
+  id, guest_name, email, room_number, complaint_type, description, priority, status, attachments, created_at, updated_at
 ) VALUES (
   'comp-004-uuid-0004',
-  NULL,
   'Emma Wilson',
   'emma.wilson@email.com',
   '315',
